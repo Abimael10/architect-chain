@@ -203,9 +203,7 @@ impl Blockchain {
 
         // Critical: I need to check for double-spending within this block
         // This prevents the same UTXO from being spent multiple times in one block
-        if let Err(e) = self.check_for_double_spending(transactions) {
-            return Err(e);
-        }
+        self.check_for_double_spending(transactions)?;
 
         // I get the current blockchain height to determine the next block's height
         let best_height = self.get_best_height()?;
@@ -601,11 +599,8 @@ impl Blockchain {
 
         // Get previous block timestamp for validation
         let prev_timestamp = if block.get_pre_block_hash() != "None" {
-            if let Some(prev_block) = self.get_block(&block.get_pre_block_hash())? {
-                Some(prev_block.get_timestamp())
-            } else {
-                None
-            }
+            self.get_block(&block.get_pre_block_hash())?
+                .map(|prev_block| prev_block.get_timestamp())
         } else {
             None
         };

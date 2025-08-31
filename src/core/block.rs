@@ -41,7 +41,7 @@ impl Block {
         // I validate block constraints during creation to catch issues early
         // But I'll make this more lenient for backward compatibility
         if let Err(e) = Self::validate_block_constraints(transactions) {
-            log::warn!("Block constraint validation warning during creation: {}", e);
+            log::warn!("Block constraint validation warning during creation: {e}");
             // Continue anyway for backward compatibility
         }
 
@@ -217,8 +217,7 @@ impl Block {
             // Check individual transaction size
             if tx_size > MAX_TRANSACTION_SIZE {
                 return Err(BlockchainError::InvalidBlock(format!(
-                    "Transaction {} too large: {} bytes (max: {} bytes)",
-                    i, tx_size, MAX_TRANSACTION_SIZE
+                    "Transaction {i} too large: {tx_size} bytes (max: {MAX_TRANSACTION_SIZE} bytes)"
                 )));
             }
 
@@ -228,8 +227,7 @@ impl Block {
         // Check total block size
         if total_size > MAX_BLOCK_SIZE {
             return Err(BlockchainError::InvalidBlock(format!(
-                "Block too large: {} bytes (max: {} bytes)",
-                total_size, MAX_BLOCK_SIZE
+                "Block too large: {total_size} bytes (max: {MAX_BLOCK_SIZE} bytes)"
             )));
         }
 
@@ -338,11 +336,7 @@ impl Block {
 
         let coinbase_value = coinbase.get_output_value()?;
         if coinbase_value != expected_reward {
-            log::error!(
-                "Invalid coinbase reward: {} (expected: {})",
-                coinbase_value,
-                expected_reward
-            );
+            log::error!("Invalid coinbase reward: {coinbase_value} (expected: {expected_reward})");
             return Ok(false);
         }
 

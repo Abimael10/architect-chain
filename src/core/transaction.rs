@@ -410,7 +410,7 @@ impl Transaction {
         // Critical: I need to check that none of my inputs have already been spent
         // This prevents double-spending attacks
         if let Err(e) = blockchain.validate_transaction_inputs(self) {
-            log::error!("Transaction input validation failed: {}", e);
+            log::error!("Transaction input validation failed: {e}");
             return false;
         }
 
