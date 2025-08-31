@@ -1,0 +1,27 @@
+# Architect Chain - Basic Configuration
+# This file contains basic blockchain configuration settings
+
+[fee_system]
+# Fee system configuration
+dynamic_enabled = true
+
+[fee_system.mode.Dynamic.config]
+base_fee = 1
+max_fee = 10
+congestion_threshold = 20
+coinbase_reward = 5000000000
+
+[fee_system.mode.Dynamic.config.priority_multipliers]
+Normal = 1.0
+Urgent = 3.0
+High = 2.0
+Low = 0.5
+
+[wallet]
+# Wallet configuration
+encryption_enabled = false
+backup_enabled = true
+
+[network]
+# Basic network configuration
+peer_discovery_mode = "Bootstrap"

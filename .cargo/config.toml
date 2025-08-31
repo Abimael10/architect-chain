@@ -1,0 +1,4 @@
+[build]
+# Run tests sequentially to avoid database conflicts
+[env]
+RUST_TEST_THREADS = "1"
