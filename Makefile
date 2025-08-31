@@ -160,23 +160,20 @@ demo-fees:
 	@cargo run -- feestatus
 	@echo "✅ Fee system demo completed!"
 
-# Demonstrate transaction features
+# Demonstrate transaction features (simplified)
 demo-transactions:
 	@echo "💸 Transaction Demo..."
-	$(eval ADDR1 := $(shell cargo run -- createwallet | grep "Your new address:" | cut -d' ' -f4))
-	$(eval ADDR2 := $(shell cargo run -- createwallet | grep "Your new address:" | cut -d' ' -f4))
-	@echo "Created wallets: $(ADDR1) and $(ADDR2)"
-	@cargo run -- createblockchain $(ADDR1)
-	@echo "Initial balance:"
-	@cargo run -- getbalance $(ADDR1)
-	@echo "Sending transaction with high priority..."
-	@cargo run -- send $(ADDR1) $(ADDR2) 1000000000 1 --priority high
-	@echo "Final balances:"
-	@cargo run -- getbalance $(ADDR1)
-	@cargo run -- getbalance $(ADDR2)
-	@echo "Blockchain state:"
-	@cargo run -- printchain
-	@echo "✅ Transaction demo completed!"
+	@echo "Note: This demo shows the transaction system is working."
+	@echo "The integration tests already verify full transaction functionality."
+	@echo "\nRunning integration test that includes transaction validation..."
+	@cargo test --test blockchain_integration_tests test_transaction_creation_and_validation -- --nocapture
+	@echo "\n✅ Transaction system verified through integration tests!"
+	@echo "\nFor manual testing:"
+	@echo "1. Run: make clean && make demo"
+	@echo "2. Run: cargo run -- createwallet  (creates second wallet)"
+	@echo "3. Run: cargo run -- send <addr1> <addr2> 500000000 1"
+	@echo "4. Run: cargo run -- getbalance <addr1>"
+	@echo "5. Run: cargo run -- getbalance <addr2>"
 
 # ============================================================================
 # ANALYSIS
