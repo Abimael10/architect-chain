@@ -402,10 +402,26 @@ impl Transaction {
     }
 
     pub fn verify(&self, blockchain: &Blockchain) -> bool {
+        // If this is a coinbase transaction, I need to verify it differently
         if self.is_coinbase() {
-            return true;
+            return self.verify_coinbase();
         }
 
+        // Critical: I need to check that none of my inputs have already been spent
+        // This prevents double-spending attacks
+        if let Err(e) = blockchain.validate_transaction_inputs(self) {
+            log::error!("Transaction input validation failed: {}", e);
+            return false;
+        }
+
+        // This is the most critical check - I need to make sure no value is created or destroyed
+        // The fundamental rule of blockchain: what goes in must equal what goes out plus fees
+        if !self.verify_balance(blockchain) {
+            log::error!("Transaction balance validation failed - this is a critical blockchain violation");
+            return false;
+        }
+
+        // Now I verify the cryptographic signatures to make sure the spender owns the inputs
         let mut tx_copy = self.trimmed_copy();
         for (idx, vin) in self.vin.iter().enumerate() {
             let prev_tx = match blockchain.find_transaction(vin.get_txid()) {
@@ -435,6 +451,97 @@ impl Transaction {
                 return false;
             }
         }
+        true
+    }
+
+    // I need to verify coinbase transactions have the right structure
+    fn verify_coinbase(&self) -> bool {
+        // Coinbase transactions are special - they create new money from nothing
+        // But they still need to follow specific rules
+        if self.vin.len() != 1 {
+            log::error!("Coinbase transaction must have exactly one input - this is how I identify them");
+            return false;
+        }
+
+        // I need at least one output to pay the miner
+        if self.vout.is_empty() {
+            log::error!("Coinbase transaction must have at least one output to pay the miner");
+            return false;
+        }
+
+        // Coinbase transactions don't pay fees - they create the fees for others
+        if self.fee != 0 {
+            log::error!("Coinbase transaction should not have fees - they create money, not spend it");
+            return false;
+        }
+
+        true
+    }
+
+    // This is THE most important validation in my entire blockchain
+    // If I get this wrong, people can create money out of thin air
+    fn verify_balance(&self, blockchain: &Blockchain) -> bool {
+        let mut input_value = 0u64;
+        let mut output_value = 0u64;
+
+        // I need to calculate how much value is coming into this transaction
+        for vin in &self.vin {
+            // I look up the previous transaction to see how much this input is worth
+            let prev_tx = match blockchain.find_transaction(vin.get_txid()) {
+                Some(tx) => tx,
+                None => {
+                    log::error!("Previous transaction not found - this input doesn't exist!");
+                    return false;
+                }
+            };
+
+            // I make sure the output index is valid
+            if vin.vout >= prev_tx.vout.len() {
+                log::error!("Invalid output index - trying to spend an output that doesn't exist");
+                return false;
+            }
+
+            // I add up the value from this input
+            let prev_output = &prev_tx.vout[vin.vout];
+            input_value = match input_value.checked_add(prev_output.get_value()) {
+                Some(sum) => sum,
+                None => {
+                    log::error!("Input value overflow - someone is trying to break my math!");
+                    return false;
+                }
+            };
+        }
+
+        // Now I calculate how much value is going out of this transaction
+        for vout in &self.vout {
+            output_value = match output_value.checked_add(vout.get_value()) {
+                Some(sum) => sum,
+                None => {
+                    log::error!("Output value overflow - the numbers are too big!");
+                    return false;
+                }
+            };
+        }
+
+        // Here's the fundamental rule: inputs must equal outputs plus fees
+        // If this doesn't balance, someone is trying to create or destroy value
+        let total_spent = match output_value.checked_add(self.fee) {
+            Some(sum) => sum,
+            None => {
+                log::error!("Total spent overflow - the math doesn't work");
+                return false;
+            }
+        };
+
+        if input_value != total_spent {
+            log::error!(
+                "CRITICAL: Transaction balance violation! inputs={}, outputs={}, fees={}, total_spent={}",
+                input_value, output_value, self.fee, total_spent
+            );
+            return false;
+        }
+
+        // If I get here, the transaction balances correctly - no value created or destroyed
         true
     }
 
@@ -496,5 +603,59 @@ impl Transaction {
 
     pub fn deserialize(bytes: &[u8]) -> Result<Transaction> {
         deserialize(bytes)
+    }
+
+    // I want to be able to get the total input value for analysis and debugging
+    pub fn get_input_value(&self, blockchain: &Blockchain) -> Result<u64> {
+        if self.is_coinbase() {
+            return Ok(0); // Coinbase transactions don't have real inputs
+        }
+
+        let mut total = 0u64;
+        for vin in &self.vin {
+            // I look up each previous transaction to get the input values
+            let prev_tx = blockchain.find_transaction(vin.get_txid())
+                .ok_or_else(|| BlockchainError::Transaction("Previous transaction not found".to_string()))?;
+            
+            if vin.vout >= prev_tx.vout.len() {
+                return Err(BlockchainError::Transaction("Invalid output index".to_string()));
+            }
+
+            let prev_output = &prev_tx.vout[vin.vout];
+            total = total.checked_add(prev_output.get_value())
+                .ok_or_else(|| BlockchainError::Transaction("Input value overflow".to_string()))?;
+        }
+        Ok(total)
+    }
+
+    // I want to be able to get the total output value easily
+    pub fn get_output_value(&self) -> Result<u64> {
+        let mut total = 0u64;
+        for vout in &self.vout {
+            total = total.checked_add(vout.get_value())
+                .ok_or_else(|| BlockchainError::Transaction("Output value overflow".to_string()))?;
+        }
+        Ok(total)
+    }
+
+    // I want a detailed balance verification that gives me specific error messages
+    pub fn verify_balance_detailed(&self, blockchain: &Blockchain) -> Result<bool> {
+        if self.is_coinbase() {
+            return Ok(true); // Coinbase transactions are allowed to create new value
+        }
+
+        let input_value = self.get_input_value(blockchain)?;
+        let output_value = self.get_output_value()?;
+        let total_spent = output_value.checked_add(self.fee)
+            .ok_or_else(|| BlockchainError::Transaction("Total spent overflow".to_string()))?;
+
+        if input_value != total_spent {
+            return Err(BlockchainError::Transaction(format!(
+                "Transaction balance violation: inputs={}, outputs={}, fees={}, total_spent={}",
+                input_value, output_value, self.fee, total_spent
+            )));
+        }
+
+        Ok(true)
     }
 }

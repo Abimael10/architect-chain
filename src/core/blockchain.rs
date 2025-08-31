@@ -201,6 +201,12 @@ impl Blockchain {
             }
         }
 
+        // Critical: I need to check for double-spending within this block
+        // This prevents the same UTXO from being spent multiple times in one block
+        if let Err(e) = self.check_for_double_spending(transactions) {
+            return Err(e);
+        }
+
         // I get the current blockchain height to determine the next block's height
         let best_height = self.get_best_height()?;
         let next_height = best_height + 1;
@@ -604,6 +610,91 @@ impl Blockchain {
         for transaction in block.get_transactions() {
             if !transaction.verify(self) {
                 return Ok(false); // Invalid transaction
+            }
+        }
+
+        Ok(true)
+    }
+
+    // This is critical - I need to prevent double-spending within a single block
+    // Someone could try to spend the same UTXO multiple times in different transactions
+    fn check_for_double_spending(&self, transactions: &[Transaction]) -> Result<()> {
+        use std::collections::HashSet;
+        let mut spent_outputs: HashSet<(Vec<u8>, usize)> = HashSet::new();
+
+        for (tx_index, transaction) in transactions.iter().enumerate() {
+            // I skip coinbase transactions since they don't spend existing outputs
+            if transaction.is_coinbase() {
+                continue;
+            }
+
+            // I check each input to see if it's already been spent in this block
+            for input in transaction.get_vin() {
+                let output_reference = (input.get_txid().to_vec(), input.get_vout());
+                
+                // If I've already seen this output being spent, that's a double-spend!
+                if spent_outputs.contains(&output_reference) {
+                    return Err(BlockchainError::Transaction(format!(
+                        "Double-spending detected in transaction {}: output {}:{} already spent in this block",
+                        tx_index,
+                        HEXLOWER.encode(input.get_txid()),
+                        input.get_vout()
+                    )));
+                }
+
+                // I mark this output as spent
+                spent_outputs.insert(output_reference);
+            }
+        }
+
+        // If I get here, no double-spending was detected
+        Ok(())
+    }
+
+    // I also need to check if an output has already been spent in the blockchain
+    pub fn is_output_spent(&self, txid: &[u8], vout: usize) -> bool {
+        // I iterate through all blocks to see if this output has been spent
+        let mut iterator = self.iterator();
+        while let Some(block) = iterator.next() {
+            for transaction in block.get_transactions() {
+                // I skip coinbase transactions
+                if transaction.is_coinbase() {
+                    continue;
+                }
+
+                // I check if any input spends the output I'm looking for
+                for input in transaction.get_vin() {
+                    if input.get_txid() == txid && input.get_vout() == vout {
+                        return true; // This output has been spent
+                    }
+                }
+            }
+        }
+        false // This output hasn't been spent yet
+    }
+
+    // I want to be able to validate that a transaction's inputs haven't been spent
+    pub fn validate_transaction_inputs(&self, transaction: &Transaction) -> Result<bool> {
+        if transaction.is_coinbase() {
+            return Ok(true); // Coinbase transactions don't have real inputs to validate
+        }
+
+        for input in transaction.get_vin() {
+            // I check if this input has already been spent
+            if self.is_output_spent(input.get_txid(), input.get_vout()) {
+                return Err(BlockchainError::Transaction(format!(
+                    "Input already spent: {}:{}",
+                    HEXLOWER.encode(input.get_txid()),
+                    input.get_vout()
+                )));
+            }
+
+            // I also verify that the referenced transaction exists
+            if self.find_transaction(input.get_txid()).is_none() {
+                return Err(BlockchainError::Transaction(format!(
+                    "Referenced transaction not found: {}",
+                    HEXLOWER.encode(input.get_txid())
+                )));
             }
         }
 
