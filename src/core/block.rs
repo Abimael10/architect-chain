@@ -10,7 +10,8 @@ const MAX_BLOCK_SIZE: usize = 1_000_000; // 1MB maximum block size
 const MAX_TRANSACTIONS_PER_BLOCK: usize = 4000; // Maximum transactions per block
 const MAX_TRANSACTION_SIZE: usize = 100_000; // 100KB maximum transaction size
 const MAX_FUTURE_TIME: i64 = 2 * 60 * 60; // 2 hours maximum future time
-const MIN_COINBASE_MATURITY: usize = 100; // Coinbase outputs mature after 100 blocks
+// I'll implement coinbase maturity later when needed
+// const MIN_COINBASE_MATURITY: usize = 100; // Coinbase outputs mature after 100 blocks
 
 #[derive(Debug, Clone, Serialize, Deserialize, bincode::Encode, bincode::Decode)]
 pub struct Block {
