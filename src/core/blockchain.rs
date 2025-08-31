@@ -256,6 +256,20 @@ impl Blockchain {
             next_height,
             difficulty,
         )?;
+
+        // I should validate the block I just created to make sure it's valid
+        let prev_block = if next_height > 0 {
+            self.get_block(&self.get_tip_hash())?
+        } else {
+            None
+        };
+        let prev_timestamp = prev_block.as_ref().map(|b| b.get_timestamp());
+        
+        if !block.validate_block(prev_timestamp)? {
+            return Err(BlockchainError::InvalidBlock(
+                "Created block failed validation".to_string(),
+            ));
+        }
         let block_hash = block.get_hash();
 
         let blocks_tree = self
@@ -596,20 +610,35 @@ impl Blockchain {
             return Ok(false); // Previous block not found
         }
 
-        // Validate proof of work
-        if !crate::core::ProofOfWork::validate(block) {
-            return Ok(false); // Invalid proof of work
-        }
+        // Get previous block timestamp for validation
+        let prev_timestamp = if block.get_pre_block_hash() != "None" {
+            if let Some(prev_block) = self.get_block(&block.get_pre_block_hash())? {
+                Some(prev_block.get_timestamp())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
-        // Validate merkle root
-        if !block.verify_merkle_root()? {
-            return Ok(false); // Invalid merkle root
+        // Use comprehensive block validation
+        if !block.validate_block(prev_timestamp)? {
+            return Ok(false); // Block validation failed
         }
 
         // Validate all transactions in the block
         for transaction in block.get_transactions() {
             if !transaction.verify(self) {
                 return Ok(false); // Invalid transaction
+            }
+        }
+
+        // Validate coinbase reward if this isn't genesis
+        if block.get_height() > 0 {
+            let total_fees = block.get_total_fees();
+            let expected_reward = crate::core::FeeCalculator::calculate_coinbase_reward(total_fees);
+            if !block.validate_coinbase_reward(expected_reward)? {
+                return Ok(false); // Invalid coinbase reward
             }
         }
 
