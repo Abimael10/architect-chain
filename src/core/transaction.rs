@@ -417,7 +417,9 @@ impl Transaction {
         // This is the most critical check - I need to make sure no value is created or destroyed
         // The fundamental rule of blockchain: what goes in must equal what goes out plus fees
         if !self.verify_balance(blockchain) {
-            log::error!("Transaction balance validation failed - this is a critical blockchain violation");
+            log::error!(
+                "Transaction balance validation failed - this is a critical blockchain violation"
+            );
             return false;
         }
 
@@ -459,7 +461,9 @@ impl Transaction {
         // Coinbase transactions are special - they create new money from nothing
         // But they still need to follow specific rules
         if self.vin.len() != 1 {
-            log::error!("Coinbase transaction must have exactly one input - this is how I identify them");
+            log::error!(
+                "Coinbase transaction must have exactly one input - this is how I identify them"
+            );
             return false;
         }
 
@@ -471,7 +475,9 @@ impl Transaction {
 
         // Coinbase transactions don't pay fees - they create the fees for others
         if self.fee != 0 {
-            log::error!("Coinbase transaction should not have fees - they create money, not spend it");
+            log::error!(
+                "Coinbase transaction should not have fees - they create money, not spend it"
+            );
             return false;
         }
 
@@ -614,15 +620,19 @@ impl Transaction {
         let mut total = 0u64;
         for vin in &self.vin {
             // I look up each previous transaction to get the input values
-            let prev_tx = blockchain.find_transaction(vin.get_txid())
-                .ok_or_else(|| BlockchainError::Transaction("Previous transaction not found".to_string()))?;
-            
+            let prev_tx = blockchain.find_transaction(vin.get_txid()).ok_or_else(|| {
+                BlockchainError::Transaction("Previous transaction not found".to_string())
+            })?;
+
             if vin.vout >= prev_tx.vout.len() {
-                return Err(BlockchainError::Transaction("Invalid output index".to_string()));
+                return Err(BlockchainError::Transaction(
+                    "Invalid output index".to_string(),
+                ));
             }
 
             let prev_output = &prev_tx.vout[vin.vout];
-            total = total.checked_add(prev_output.get_value())
+            total = total
+                .checked_add(prev_output.get_value())
                 .ok_or_else(|| BlockchainError::Transaction("Input value overflow".to_string()))?;
         }
         Ok(total)
@@ -632,7 +642,8 @@ impl Transaction {
     pub fn get_output_value(&self) -> Result<u64> {
         let mut total = 0u64;
         for vout in &self.vout {
-            total = total.checked_add(vout.get_value())
+            total = total
+                .checked_add(vout.get_value())
                 .ok_or_else(|| BlockchainError::Transaction("Output value overflow".to_string()))?;
         }
         Ok(total)
@@ -646,7 +657,8 @@ impl Transaction {
 
         let input_value = self.get_input_value(blockchain)?;
         let output_value = self.get_output_value()?;
-        let total_spent = output_value.checked_add(self.fee)
+        let total_spent = output_value
+            .checked_add(self.fee)
             .ok_or_else(|| BlockchainError::Transaction("Total spent overflow".to_string()))?;
 
         if input_value != total_spent {

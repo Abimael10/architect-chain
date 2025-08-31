@@ -10,8 +10,8 @@ const MAX_BLOCK_SIZE: usize = 1_000_000; // 1MB maximum block size
 const MAX_TRANSACTIONS_PER_BLOCK: usize = 4000; // Maximum transactions per block
 const MAX_TRANSACTION_SIZE: usize = 100_000; // 100KB maximum transaction size
 const MAX_FUTURE_TIME: i64 = 2 * 60 * 60; // 2 hours maximum future time
-// I'll implement coinbase maturity later when needed
-// const MIN_COINBASE_MATURITY: usize = 100; // Coinbase outputs mature after 100 blocks
+                                          // I'll implement coinbase maturity later when needed
+                                          // const MIN_COINBASE_MATURITY: usize = 100; // Coinbase outputs mature after 100 blocks
 
 #[derive(Debug, Clone, Serialize, Deserialize, bincode::Encode, bincode::Decode)]
 pub struct Block {
@@ -213,7 +213,7 @@ impl Block {
         let mut total_size = 0;
         for (i, transaction) in transactions.iter().enumerate() {
             let tx_size = transaction.serialize()?.len();
-            
+
             // Check individual transaction size
             if tx_size > MAX_TRANSACTION_SIZE {
                 return Err(BlockchainError::InvalidBlock(format!(
@@ -221,7 +221,7 @@ impl Block {
                     i, tx_size, MAX_TRANSACTION_SIZE
                 )));
             }
-            
+
             total_size += tx_size;
         }
 
@@ -278,12 +278,14 @@ impl Block {
     // I need to validate the block timestamp to prevent time-based attacks
     fn validate_timestamp(&self, prev_block_timestamp: Option<i64>) -> Result<bool> {
         let current_time = current_timestamp()?;
-        
+
         // Block timestamp cannot be too far in the future
         if self.timestamp > current_time + MAX_FUTURE_TIME {
             log::error!(
                 "Block timestamp too far in future: {} (current: {}, max future: {})",
-                self.timestamp, current_time, current_time + MAX_FUTURE_TIME
+                self.timestamp,
+                current_time,
+                current_time + MAX_FUTURE_TIME
             );
             return Ok(false);
         }
@@ -295,7 +297,8 @@ impl Block {
             if self.timestamp < prev_timestamp {
                 log::error!(
                     "Block timestamp must not be before previous block: {} < {}",
-                    self.timestamp, prev_timestamp
+                    self.timestamp,
+                    prev_timestamp
                 );
                 return Ok(false);
             }
@@ -337,7 +340,8 @@ impl Block {
         if coinbase_value != expected_reward {
             log::error!(
                 "Invalid coinbase reward: {} (expected: {})",
-                coinbase_value, expected_reward
+                coinbase_value,
+                expected_reward
             );
             return Ok(false);
         }

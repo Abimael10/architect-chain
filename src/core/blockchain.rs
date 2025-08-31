@@ -649,7 +649,7 @@ impl Blockchain {
             // I check each input to see if it's already been spent in this block
             for input in transaction.get_vin() {
                 let output_reference = (input.get_txid().to_vec(), input.get_vout());
-                
+
                 // If I've already seen this output being spent, that's a double-spend!
                 if spent_outputs.contains(&output_reference) {
                     return Err(BlockchainError::Transaction(format!(

@@ -5,6 +5,7 @@
 # Blockchain data
 /data/
 wallet.dat
+wallet_backups/
 
 # IDE
 .vscode/
