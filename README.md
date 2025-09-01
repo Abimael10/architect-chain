@@ -17,6 +17,8 @@
 
 > *A blockchain implementation in Rust with UTXO model, proof-of-work consensus, and P2P networking*
 
+> *Looking for contributions to test in environments outside Debian based distributions*
+
 ## QUICK START
 
 For a good start I compiled the essential commands in the Makefile I attached to the root of this repo so that the command handling is a little bit handy! (They are a ton...)
